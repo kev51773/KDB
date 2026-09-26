@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDB - QA Database Tool</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tabulator Grid CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_midnight.min.css">
+    <!-- CodeMirror SQL Editor CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.css">
+    <!-- jsTree CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.16/themes/default/style.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css?v=3.2">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Header -->
+        <header class="top-header">
+            <div class="brand">
+                <i class="fa-solid fa-database brand-icon"></i>
+                <span class="brand-title">KDB <small>QA Database Tool</small></span>
+            </div>
+            <div class="header-center">
+                <div class="connection-picker-group">
+                    <label for="activeConnectionSelect"><i class="fa-solid fa-plug"></i> Connection:</label>
+                    <select id="activeConnectionSelect" class="input-select">
+                        <option value="">-- Select Active Database --</option>
+                    </select>
+                    <button id="manageConnBtn" class="btn btn-secondary" title="Manage Connections">
+                        <i class="fa-solid fa-gear"></i> Connections
+                    </button>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="historyBtn" class="btn btn-secondary" title="Query Execution History">
+                    <i class="fa-solid fa-clock-rotate-left"></i> History
+                </button>
+                <button id="newQueryBtn" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i> New Query
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body Split View -->
+        <div class="main-layout">
+            <!-- Combined Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-scroll-container">
+                    <!-- Section 1: Tables & Views -->
+                    <div class="sidebar-section" id="schemaSection">
+                        <div class="sidebar-section-header">
+                            <span>
+                                <i class="fa-solid fa-database text-primary"></i>
+                                <strong>Tables & Views</strong>
+                            </span>
+                            <div class="sidebar-section-actions">
+                                <button id="refreshSchemaBtn" class="icon-btn" title="Refresh Schema"><i class="fa-solid fa-arrows-rotate"></i></button>
+                            </div>
+                        </div>
+                        <div class="sidebar-section-search">
+                            <input type="text" id="schemaSearchInput" placeholder="Filter tables & views...">
+                        </div>
+                        <div class="sidebar-section-body" id="schemaTree">
+                            <div class="empty-hint">Select a connection to load tables</div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Bookmarks -->
+                    <div class="sidebar-section" id="bookmarksSection">
+                        <div class="sidebar-section-header">
+                            <span>
+                                <i class="fa-solid fa-bookmark text-warning"></i>
+                                <strong>Bookmarks</strong>
+                            </span>
+                            <div class="sidebar-section-actions">
+                                <button id="exportBookmarksBtn" class="icon-btn" title="Export Bookmarks (JSON)"><i class="fa-solid fa-file-export"></i></button>
+                                <button id="importBookmarksBtn" class="icon-btn" title="Import Bookmarks (JSON)"><i class="fa-solid fa-file-import"></i></button>
+                                <button id="newGroupBtn" class="icon-btn" title="New Group"><i class="fa-solid fa-folder-plus"></i></button>
+                                <button id="newBookmarkBtn" class="icon-btn" title="Bookmark Query"><i class="fa-solid fa-star"></i></button>
+                                <input type="file" id="importFileInput" accept=".json" style="display:none">
+                            </div>
+                        </div>
+                        <div class="sidebar-section-search">
+                            <input type="text" id="bookmarksSearchInput" placeholder="Filter bookmarks...">
+                        </div>
+                        <div class="sidebar-section-body" id="bookmarksTree">
+                            <div class="empty-hint">No bookmarks for active database</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Sidebar Resizer Drag Handle -->
+            <div class="sidebar-resizer" id="sidebarResizer"></div>
+
+            <!-- Workspace Panel -->
+            <main class="workspace">
+                <!-- Query Editor Card -->
+                <div class="query-panel card">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-code"></i> SQL Query Panel
+                            <span id="activeConnBadge" class="badge badge-outline">No DB connected</span>
+                        </div>
+                        <div class="panel-actions">
+                            <button id="saveAsBookmarkBtn" class="btn btn-sm btn-secondary" title="Save Query to Bookmarks">
+                                <i class="fa-solid fa-star"></i> Bookmark
+                            </button>
+                            <button id="clearQueryBtn" class="btn btn-sm btn-secondary" title="Clear SQL">
+                                <i class="fa-solid fa-eraser"></i> Clear
+                            </button>
+                            <button id="runQueryBtn" class="btn btn-sm btn-success" title="Execute SQL (Ctrl+Enter)">
+                                <i class="fa-solid fa-play"></i> Run Query (Ctrl+Enter)
+                            </button>
+                        </div>
+                    </div>
+                    <div class="editor-container">
+                        <textarea id="sqlEditor"></textarea>
+                    </div>
+                </div>
+
+                <!-- Query Results Data Panel -->
+                <div class="results-panel card">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-table"></i> Data Results
+                            <span id="execStatsBadge" class="exec-stats"></span>
+                        </div>
+                        <div class="panel-actions">
+                            <input type="text" id="gridSearchInput" class="input-sm" placeholder="Filter rows in grid...">
+                            <button id="exportCsvBtn" class="btn btn-sm btn-secondary" title="Export to CSV">
+                                <i class="fa-solid fa-file-csv"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div id="resultsGrid" class="grid-container"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- CONNECTION MANAGER MODAL -->
+    <div id="connectionModal" class="modal">
+        <div class="modal-content modal-connection">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-network-wired text-primary"></i> Database Connections</h3>
+                <button class="close-btn modal-close">&times;</button>
+            </div>
+            <div class="modal-body modal-split">
+                <!-- Saved list -->
+                <div class="conn-list-panel">
+                    <div class="conn-list-header">
+                        <h4>Saved Profiles</h4>
+                        <button id="addConnProfileBtn" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i> New Profile</button>
+                    </div>
+                    <div class="conn-search-bar">
+                        <input type="text" id="connSearchInput" placeholder="Filter profiles..." class="input-sm">
+                    </div>
+                    <div class="conn-scroll-container">
+                        <ul id="savedConnList" class="item-list"></ul>
+                    </div>
+                </div>
+                <!-- Connection Form -->
+                <div class="conn-form-panel">
+                    <form id="connForm">
+                        <input type="hidden" id="connId">
+                        <div class="form-group">
+                            <label>Profile Name *</label>
+                            <input type="text" id="connName" required placeholder="e.g. Local QA DB">
+                        </div>
+                        <div class="form-group">
+                            <label>Database Type *</label>
+                            <select id="connDbType" required>
+                                <option value="sqlite">SQLite</option>
+                                <option value="postgresql">PostgreSQL</option>
+                                <option value="mysql">MySQL / MariaDB</option>
+                                <option value="mssql">MSSQL (SQL Server)</option>
+                            </select>
+                        </div>
+                        <div class="form-group db-remote-field">
+                            <label>Host</label>
+                            <input type="text" id="connHost" placeholder="localhost or 127.0.0.1">
+                        </div>
+                        <div class="form-group db-remote-field">
+                            <label>Port</label>
+                            <input type="number" id="connPort" placeholder="Auto / default">
+                        </div>
+                        <div class="form-group">
+                            <label id="dbNameLabel">Database File Path *</label>
+                            <div class="input-with-btn">
+                                <input type="text" id="connDatabase" required placeholder="Database path e.g. C:\path\db.sqlite">
+                                <button type="button" id="browseSqliteBtn" class="btn btn-secondary btn-sm" title="Browse for SQLite file">
+                                    <i class="fa-solid fa-folder-open"></i> Browse...
+                                </button>
+                                <input type="file" id="sqliteFileInput" accept=".db,.sqlite,.sqlite3,.db3" style="display:none">
+                            </div>
+                        </div>
+                        <div class="form-group db-remote-field">
+                            <label>Username</label>
+                            <input type="text" id="connUsername" placeholder="root / postgres / sa">
+                        </div>
+                        <div class="form-group db-remote-field">
+                            <label>Password</label>
+                            <input type="password" id="connPassword">
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="connReadOnly">
+                                <span><i class="fa-solid fa-lock text-warning"></i> <strong>Read-Only Mode</strong></span>
+                                <small class="text-muted">(Disables cell editing & write queries)</small>
+                            </label>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="deleteConnBtn" class="btn btn-danger btn-sm" style="display: none;"><i class="fa-solid fa-trash"></i> Delete Profile</button>
+                            <div class="form-actions-right">
+                                <button type="button" id="testConnBtn" class="btn btn-secondary"><i class="fa-solid fa-vial"></i> Test</button>
+                                <button type="button" id="saveConnBtn" class="btn btn-secondary"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+                                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plug"></i> Connect</button>
+                            </div>
+                        </div>
+                        <div id="connTestResult" class="test-result-msg"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOOKMARK MODAL -->
+    <div id="bookmarkModal" class="modal">
+        <div class="modal-content modal-bookmark">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-star"></i> <span id="bookmarkModalTitleText">Save Bookmark</span></h3>
+                <button class="close-btn modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bookmarkForm">
+                    <input type="hidden" id="bmId">
+                    <div class="form-group">
+                        <label>Bookmark Title *</label>
+                        <input type="text" id="bmTitle" required placeholder="e.g. Check Active Users">
+                    </div>
+                    <div class="form-group">
+                        <label>Group / Folder</label>
+                        <select id="bmGroupId"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>SQL Query</label>
+                        <textarea id="bmSqlQuery" rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes / QA Instructions</label>
+                        <textarea id="bmNotes" rows="2" placeholder="e.g. Expected row count should be > 0"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Tags (comma separated)</label>
+                        <input type="text" id="bmTags" placeholder="smoke-test, auth, regression">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" id="bookmarkSubmitBtn" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Bookmark</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOOKMARK GROUP MODAL -->
+    <div id="groupModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-folder-plus"></i> Bookmark Group</h3>
+                <button class="close-btn modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="groupForm">
+                    <input type="hidden" id="groupId">
+                    <div class="form-group">
+                        <label>Group / Folder Name *</label>
+                        <input type="text" id="groupName" required placeholder="e.g. Payment QA">
+                    </div>
+                    <div class="form-group">
+                        <label>Parent Folder (Optional)</label>
+                        <select id="groupParentId">
+                            <option value="">-- Root (Top-Level Folder) --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Color Accent</label>
+                        <div class="color-picker-row">
+                            <input type="color" id="groupColor" value="#4F46E5">
+                            <div class="color-swatches">
+                                <span class="swatch" data-color="#4F46E5" style="background: #4F46E5" title="Indigo"></span>
+                                <span class="swatch" data-color="#3B82F6" style="background: #3B82F6" title="Blue"></span>
+                                <span class="swatch" data-color="#10B981" style="background: #10B981" title="Emerald"></span>
+                                <span class="swatch" data-color="#F59E0B" style="background: #F59E0B" title="Amber"></span>
+                                <span class="swatch" data-color="#EF4444" style="background: #EF4444" title="Red"></span>
+                                <span class="swatch" data-color="#8B5CF6" style="background: #8B5CF6" title="Purple"></span>
+                                <span class="swatch" data-color="#EC4899" style="background: #EC4899" title="Pink"></span>
+                                <span class="swatch" data-color="#14B8A6" style="background: #14B8A6" title="Teal"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Group</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT CONFIRMATION MODAL -->
+    <div id="confirmEditModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header warning-header">
+                <h3><i class="fa-solid fa-triangle-exclamation"></i> Live Database Update</h3>
+            </div>
+            <div class="modal-body">
+                <p>You are editing cell content directly in the target database.</p>
+                <p><strong>Table:</strong> <span id="confirmTable"></span></p>
+                <p><strong>Column:</strong> <span id="confirmCol"></span></p>
+                <p><strong>New Value:</strong> <code id="confirmVal"></code></p>
+                <p class="text-sm text-muted">Do you want to apply this update to the database?</p>
+                <div class="form-actions">
+                    <button id="cancelEditBtn" class="btn btn-secondary">Cancel</button>
+                    <button id="confirmEditBtn" class="btn btn-danger">Confirm & Update DB</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HISTORY MODAL -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> Query Execution History</h3>
+                <button class="close-btn modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="historyTableContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/sql-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.16/jstree.min.js"></script>
+    <!-- App Logic -->
+    <script src="/static/js/app.js?v=3.2"></script>
+</body>
+</html>
