@@ -13,8 +13,9 @@ def build_connection_url(config: Dict[str, Any]) -> str:
     port = config.get("port")
     extra = config.get("extra_params", "")
 
+    user_encoded = quote_plus(username) if username else ""
     pass_encoded = quote_plus(password) if password else ""
-    user_part = f"{username}:{pass_encoded}@" if username else ""
+    user_part = f"{user_encoded}:{pass_encoded}@" if username else ""
 
     if db_type == "sqlite":
         # Handle SQLite file path
@@ -200,9 +201,24 @@ def update_cell_value(
     engine = get_engine(config)
     start_time = time.time()
     try:
+        schema = inspect_schema(config)
+        table_meta = next((t for t in schema.get("tables", []) if t["name"].lower() == table_name.lower()), None)
+        if not table_meta:
+            raise ValueError(f"Invalid or non-existent table: {table_name}")
+
+        valid_col_names = [c["name"].lower() for c in table_meta.get("columns", [])]
+        if col_name.lower() not in valid_col_names:
+            raise ValueError(f"Invalid or non-existent column: {col_name}")
+        if pk_col.lower() not in valid_col_names:
+            raise ValueError(f"Invalid or non-existent primary key column: {pk_col}")
+
+        dialect = engine.dialect
+        quoted_table = dialect.identifier_preparer.quote(table_name)
+        quoted_col = dialect.identifier_preparer.quote(col_name)
+        quoted_pk_col = dialect.identifier_preparer.quote(pk_col)
+
         with engine.connect() as conn:
-            # Escape identifiers safely using text binding or dialect quotes
-            sql = f"UPDATE {table_name} SET {col_name} = :new_val WHERE {pk_col} = :pk_val"
+            sql = f"UPDATE {quoted_table} SET {quoted_col} = :new_val WHERE {quoted_pk_col} = :pk_val"
             res = conn.execute(text(sql), {"new_val": new_val, "pk_val": pk_val})
             conn.commit()
             exec_time = round((time.time() - start_time) * 1000, 2)

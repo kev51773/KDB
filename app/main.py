@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -6,12 +7,12 @@ from pathlib import Path
 import app.db_store as db_store
 from app.routes import connections, schema, query, edit, bookmarks
 
-app = FastAPI(title="KDB - Personal QA Database Tool", version="1.0.0")
-
-# Initialize store DB on startup
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     db_store.init_store_db()
+    yield
+
+app = FastAPI(title="KDB - Personal QA Database Tool", version="1.0.0", lifespan=lifespan)
 
 # Include routers
 app.include_router(connections.router)

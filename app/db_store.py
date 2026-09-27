@@ -68,10 +68,19 @@ def init_store_db():
 
 # --- Connection CRUD ---
 
-def list_connections() -> List[Dict[str, Any]]:
+def list_connections(redact_passwords: bool = True) -> List[Dict[str, Any]]:
     with _lock:
         conns = _read_connections()
-        return sorted(conns, key=lambda c: c.get("id", 0), reverse=True)
+        sorted_conns = sorted(conns, key=lambda c: c.get("id", 0), reverse=True)
+        if redact_passwords:
+            res = []
+            for c in sorted_conns:
+                item = dict(c)
+                item["has_password"] = bool(item.get("password"))
+                item["password"] = None
+                res.append(item)
+            return res
+        return sorted_conns
 
 def get_connection(conn_id: int) -> Optional[Dict[str, Any]]:
     with _lock:

@@ -21,16 +21,31 @@ def execute_query(req: QueryRequest):
     if conn_config.get("is_read_only"):
         import sqlglot
         from sqlglot import exp
+        import re
+
         is_write = False
         try:
-            parsed = sqlglot.parse_one(req.sql_query)
-            if parsed and parsed.find(exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.AlterTable):
-                is_write = True
+            statements = sqlglot.parse(req.sql_query)
+            write_types = (
+                exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create,
+                exp.Alter, exp.Command, exp.Merge, exp.Grant, exp.Revoke,
+                exp.Kill
+            )
+            for stmt in statements:
+                if stmt:
+                    if isinstance(stmt, write_types) or stmt.find(*write_types):
+                        is_write = True
+                        break
         except Exception:
-            import re
-            if re.search(r'\b(insert|update|delete|drop|alter|truncate)\b', req.sql_query, re.IGNORECASE):
+            pass
+
+        if not is_write:
+            cleaned_sql = re.sub(r'/\*.*?\*/', '', req.sql_query, flags=re.DOTALL)
+            cleaned_sql = re.sub(r'--.*$', '', cleaned_sql, flags=re.MULTILINE)
+            pattern = r'\b(insert|update|delete|drop|alter|create|truncate|attach|pragma|exec|execute|vacuum|reindex|grant|revoke|merge)\b'
+            if re.search(pattern, cleaned_sql, re.IGNORECASE):
                 is_write = True
-        
+
         if is_write:
             raise HTTPException(status_code=403, detail="Execution blocked: Active connection is configured in Read-Only mode.")
 

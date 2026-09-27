@@ -34,7 +34,13 @@ def delete_connection(conn_id: int):
 
 @router.post("/test")
 def test_connection_endpoint(conn: ConnectionModel):
-    ok, msg = db_engine.test_connection(conn.model_dump())
+    payload = conn.model_dump()
+    if conn.id and not payload.get("password"):
+        existing = db_store.get_connection(conn.id)
+        if existing and existing.get("password"):
+            payload["password"] = existing.get("password")
+            
+    ok, msg = db_engine.test_connection(payload)
     if not ok:
         return {"status": "error", "message": msg}
     return {"status": "success", "message": msg}

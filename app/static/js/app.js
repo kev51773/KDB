@@ -1,3 +1,13 @@
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Init Sidebar Resizer ---
     const sidebar = document.querySelector('.sidebar');
@@ -202,12 +212,12 @@ document.addEventListener('DOMContentLoaded', () => {
             li.innerHTML = `
                 <div class="conn-card-info">
                     <div class="conn-card-title">
-                        <strong>${c.name}</strong>
+                        <strong>${escapeHtml(c.name)}</strong>
                     </div>
                     <div class="conn-card-sub text-muted" style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                        <span class="badge badge-outline" style="font-size: 9px; text-transform: uppercase; padding: 1px 5px;">${c.db_type}</span>
+                        <span class="badge badge-outline" style="font-size: 9px; text-transform: uppercase; padding: 1px 5px;">${escapeHtml(c.db_type)}</span>
                         ${c.is_read_only ? '<i class="fa-solid fa-lock text-warning" title="Read-Only" style="font-size: 11px;"></i>' : ''}
-                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${c.database || c.host || ''}</span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${escapeHtml(c.database || c.host || '')}</span>
                     </div>
                 </div>
             `;
@@ -470,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="folder-header">
                 <i class="fa-solid fa-chevron-right toggle-icon"></i>
                 <i class="fa-solid ${iconClass} text-primary"></i>
-                <strong>${groupTitle} (${matchingItems.length})</strong>
+                <strong>${escapeHtml(groupTitle)} (${matchingItems.length})</strong>
             </div>
             <div class="folder-children"></div>
         `;
@@ -483,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             itemDiv.dataset.name = item.name;
             itemDiv.innerHTML = `
                 <i class="fa-solid ${isTableGroup ? 'fa-table-cells' : 'fa-rectangle-list'} text-muted"></i>
-                <span>${item.name}</span>
+                <span>${escapeHtml(item.name)}</span>
                 <small class="text-muted ml-auto">${item.columns.length} cols</small>
             `;
 
@@ -795,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
             treeData.push({
                 id: `group_${g.id}`,
                 parent: parentId,
-                text: `<span><i class="fa-solid fa-folder" style="color: ${g.color}"></i> ${g.name}</span>`,
+                text: `<span><i class="fa-solid fa-folder" style="color: ${escapeHtml(g.color)}"></i> ${escapeHtml(g.name)}</span>`,
                 type: 'folder',
                 state: { opened: true },
                 data: { isGroup: true, rawId: g.id }
@@ -805,11 +815,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Build bookmarks (files)
         matchingBookmarks.forEach(b => {
             const parentId = b.group_id ? `group_${b.group_id}` : '#';
-            const notesText = b.notes ? ` <small class="text-muted">(${b.notes})</small>` : '';
+            const notesText = b.notes ? ` <small class="text-muted">(${escapeHtml(b.notes)})</small>` : '';
             treeData.push({
                 id: `bm_${b.id}`,
                 parent: parentId,
-                text: `<span><i class="fa-solid fa-star text-warning"></i> ${b.title}${notesText}</span>`,
+                text: `<span><i class="fa-solid fa-star text-warning"></i> ${escapeHtml(b.title)}${notesText}</span>`,
                 type: 'bookmark',
                 icon: false,
                 data: { isBookmark: true, rawId: b.id, sql: b.sql_query, connId: b.connection_id }
@@ -1260,12 +1270,12 @@ document.addEventListener('DOMContentLoaded', () => {
         history.forEach(h => {
             html += `
                 <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 8px; color: var(--text-muted);">${h.created_at}</td>
-                    <td style="padding: 8px;">${h.connection_name || '-'}</td>
-                    <td style="padding: 8px;"><code>${h.sql_query.substring(0, 60)}...</code></td>
+                    <td style="padding: 8px; color: var(--text-muted);">${escapeHtml(h.created_at)}</td>
+                    <td style="padding: 8px;">${escapeHtml(h.connection_name || '-')}</td>
+                    <td style="padding: 8px;"><code>${escapeHtml(h.sql_query.substring(0, 60))}...</code></td>
                     <td style="padding: 8px;">${h.execution_time_ms} ms</td>
                     <td style="padding: 8px;">${h.row_count}</td>
-                    <td style="padding: 8px; color: ${h.status === 'success' ? '#10b981' : '#ef4444'}">${h.status}</td>
+                    <td style="padding: 8px; color: ${h.status === 'success' ? '#10b981' : '#ef4444'}">${escapeHtml(h.status)}</td>
                 </tr>
             `;
         });

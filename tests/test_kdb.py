@@ -200,12 +200,21 @@ def test_read_only_mode(tmp_path):
     res_select = query_route.execute_query(req_select)
     assert res_select["status"] == "success"
 
-    # Write query check -> should raise 403
+    # Write query checks -> should raise 403
     from fastapi import HTTPException
-    req_write = query_route.QueryRequest(connection_id=conn_id, sql_query="UPDATE items SET name = 'Hacked'")
-    with pytest.raises(HTTPException) as exc_info:
-        query_route.execute_query(req_write)
-    assert exc_info.value.status_code == 403
+    blocked_queries = [
+        "UPDATE items SET name = 'Hacked'",
+        "CREATE TABLE z (x int)",
+        "ATTACH DATABASE 'x.db' AS x",
+        "TRUNCATE TABLE items",
+        "ALTER TABLE items ADD COLUMN test int",
+        "/* comment */ CREATE TABLE y (id int)"
+    ]
+    for bq in blocked_queries:
+        req_write = query_route.QueryRequest(connection_id=conn_id, sql_query=bq)
+        with pytest.raises(HTTPException) as exc_info:
+            query_route.execute_query(req_write)
+        assert exc_info.value.status_code == 403
 
     # Cell edit check -> should raise 403
     import app.routes.edit as edit_route
@@ -227,4 +236,41 @@ def test_read_only_mode(tmp_path):
     res_ac = sql_completer.get_sql_completions("u", 1, ro_schema)
     kw_texts = [item["text"] for item in res_ac if item["type"] == "keyword"]
     assert "UPDATE" not in kw_texts
+
+def test_password_redaction():
+    cid = db_store.save_connection({
+        "name": "Secret DB",
+        "db_type": "sqlite",
+        "database": ":memory:",
+        "password": "hunter2_secret"
+    })
+    
+    conns = db_store.list_connections(redact_passwords=True)
+    target = next(c for c in conns if c["id"] == cid)
+    assert target["password"] is None
+    assert target["has_password"] is True
+
+    # Internal get_connection still returns full password
+    internal = db_store.get_connection(cid)
+    assert internal["password"] == "hunter2_secret"
+
+def test_sqli_cell_update(tmp_path):
+    sample_db_path = tmp_path / "sqli_test.db"
+    conn = sqlite3.connect(sample_db_path)
+    conn.execute("CREATE TABLE users (id INT PRIMARY KEY, name TEXT);")
+    conn.execute("INSERT INTO users VALUES (1, 'Alice');")
+    conn.commit()
+    conn.close()
+
+    config = {"db_type": "sqlite", "database": str(sample_db_path)}
+
+    # Invalid table name -> status error
+    res1 = db_engine.update_cell_value(config, "users; DROP TABLE users;", "id", 1, "name", "Hacked")
+    assert res1["status"] == "error"
+    assert "Invalid" in res1["error_message"]
+
+    # Invalid column name -> status error
+    res2 = db_engine.update_cell_value(config, "users", "id", 1, "name; DROP TABLE users;", "Hacked")
+    assert res2["status"] == "error"
+    assert "Invalid" in res2["error_message"]
 
