@@ -401,6 +401,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = getConnPayload();
         payload.name = payload.name || 'Test';
 
+        if (payload.db_type === 'sqlite' && (!payload.database || !payload.database.trim())) {
+            resultDiv.textContent = 'Database File Path is required for SQLite connections.';
+            resultDiv.className = 'test-result-msg error';
+            return;
+        }
+
         try {
             const res = await apiFetch('/api/connections/test', { method: 'POST', body: JSON.stringify(payload) });
             resultDiv.textContent = res.message;

@@ -104,20 +104,30 @@ def test_delete_bookmark_group_cascade():
     assert not any(g["id"] in (parent_g, child_g) for g in groups)
     assert not any(b["id"] == bm_id for b in bms)
 
-def test_sqlite_encrypted_driver_handling():
+def test_unencrypted_sqlite_fails_with_password(tmp_path):
+    sample_db_path = tmp_path / "plain.db"
+    conn = sqlite3.connect(sample_db_path)
+    conn.execute("CREATE TABLE t (id INT);")
+    conn.commit()
+    conn.close()
+
     config = {
         "db_type": "sqlite",
-        "database": ":memory:",
-        "password": "secret_key_123"
+        "database": str(sample_db_path),
+        "password": "wrong_key_for_plain_db"
     }
-    try:
-        engine = db_engine.get_engine(config)
-        with engine.connect() as conn:
-            pass
-    except RuntimeError as err:
-        assert "SQLCipher driver" in str(err)
-    except Exception:
-        pass
+    ok, msg = db_engine.test_connection(config)
+    assert ok is False
+    assert "database" in msg.lower() or "file" in msg.lower()
+
+def test_sqlite_empty_database_path_fails():
+    config = {
+        "db_type": "sqlite",
+        "database": ""
+    }
+    ok, msg = db_engine.test_connection(config)
+    assert ok is False
+    assert "Database File Path is required" in msg
 
 def test_sqlite_engine_execution(tmp_path):
     # Create sample sqlite DB

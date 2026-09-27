@@ -56,7 +56,7 @@ def get_engine(config: Dict[str, Any]) -> Engine:
                 except ImportError:
                     raise RuntimeError(
                         "SQLCipher driver (sqlcipher3 or pysqlcipher3) is required to open encrypted SQLite databases. "
-                        "Install via 'pip install sqlcipher3-binary'"
+                        "Install via 'pip install sqlcipher3'"
                     )
             db_path = database if database else ":memory:"
             conn = sqlite3_driver.connect(db_path)
@@ -77,9 +77,15 @@ def get_engine(config: Dict[str, Any]) -> Engine:
 
 def test_connection(config: Dict[str, Any]) -> Tuple[bool, str]:
     try:
+        db_type = config.get("db_type", "").lower()
+        database = (config.get("database") or "").strip()
+        if db_type == "sqlite" and not database:
+            return False, "Database File Path is required for SQLite connections."
+
         engine = get_engine(config)
+        test_stmt = "SELECT count(*) FROM sqlite_master" if db_type == "sqlite" else "SELECT 1"
         with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
+            conn.execute(text(test_stmt))
         engine.dispose()
         return True, "Connection successful!"
     except Exception as e:
