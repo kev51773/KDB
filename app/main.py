@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 import app.db_store as db_store
-from app.routes import connections, schema, query, edit, bookmarks
+from app.routes import connections, schema, query, edit, bookmarks, system
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,6 +20,7 @@ app.include_router(schema.router)
 app.include_router(query.router)
 app.include_router(edit.router)
 app.include_router(bookmarks.router)
+app.include_router(system.router)
 
 # Static files & frontend
 static_dir = Path(__file__).parent / "static"

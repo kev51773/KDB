@@ -1285,6 +1285,32 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal('historyModal');
     });
 
+    // --- Server Shutdown Handler ---
+    const shutdownBtn = document.getElementById('shutdownBtn');
+    if (shutdownBtn) {
+        shutdownBtn.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to shut down the KDB server?')) {
+                return;
+            }
+            try {
+                await fetch('/api/system/shutdown', { method: 'POST' });
+            } catch (e) {
+                // Ignore network failure as process exits immediately
+            }
+            document.body.innerHTML = `
+                <div class="shutdown-screen">
+                    <div class="shutdown-content">
+                        <i class="fa-solid fa-power-off shutdown-icon"></i>
+                        <h2>Server Shut Down</h2>
+                        <p>The KDB server backend process has been terminated.</p>
+                        <p class="text-muted">You can safely close this browser tab or restart the server from your terminal.</p>
+                        <button class="btn btn-primary" onclick="window.location.reload()"><i class="fa-solid fa-rotate"></i> Reconnect / Reload</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
     // Initial Load: Always start at connection modal
     populateConnForm({});
     loadConnections().then(() => {

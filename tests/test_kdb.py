@@ -274,3 +274,11 @@ def test_sqli_cell_update(tmp_path):
     assert res2["status"] == "error"
     assert "Invalid" in res2["error_message"]
 
+def test_system_shutdown(monkeypatch):
+    import app.routes.system as system_route
+    shutdown_called = []
+    monkeypatch.setattr(system_route, "_shutdown_process", lambda: shutdown_called.append(True))
+
+    res = system_route.shutdown_server()
+    assert res == {"status": "success", "message": "Server shutting down..."}
+
