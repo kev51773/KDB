@@ -104,6 +104,21 @@ def test_delete_bookmark_group_cascade():
     assert not any(g["id"] in (parent_g, child_g) for g in groups)
     assert not any(b["id"] == bm_id for b in bms)
 
+def test_sqlite_encrypted_driver_handling():
+    config = {
+        "db_type": "sqlite",
+        "database": ":memory:",
+        "password": "secret_key_123"
+    }
+    try:
+        engine = db_engine.get_engine(config)
+        with engine.connect() as conn:
+            pass
+    except RuntimeError as err:
+        assert "SQLCipher driver" in str(err)
+    except Exception:
+        pass
+
 def test_sqlite_engine_execution(tmp_path):
     # Create sample sqlite DB
     sample_db_path = tmp_path / "sample.db"

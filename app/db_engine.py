@@ -42,12 +42,35 @@ def build_connection_url(config: Dict[str, Any]) -> str:
         raise ValueError(f"Unsupported database type: {db_type}")
 
 def get_engine(config: Dict[str, Any]) -> Engine:
+    db_type = config.get("db_type", "").lower()
+    database = config.get("database", "")
+    password = config.get("password", "")
+
+    if db_type == "sqlite" and password:
+        def sqlite_cipher_creator():
+            try:
+                import sqlcipher3 as sqlite3_driver
+            except ImportError:
+                try:
+                    from pysqlcipher3 import dbapi2 as sqlite3_driver
+                except ImportError:
+                    raise RuntimeError(
+                        "SQLCipher driver (sqlcipher3 or pysqlcipher3) is required to open encrypted SQLite databases. "
+                        "Install via 'pip install sqlcipher3-binary'"
+                    )
+            db_path = database if database else ":memory:"
+            conn = sqlite3_driver.connect(db_path)
+            escaped_pass = password.replace("'", "''")
+            conn.execute(f"PRAGMA key = '{escaped_pass}';")
+            return conn
+
+        return create_engine("sqlite://", creator=sqlite_cipher_creator, pool_pre_ping=True)
+
     url = build_connection_url(config)
-    # Fast timeouts for connection testing
     connect_args = {}
-    if config.get("db_type") in ("postgresql", "postgres"):
+    if db_type in ("postgresql", "postgres"):
         connect_args["connect_timeout"] = 5
-    elif config.get("db_type") == "mysql":
+    elif db_type == "mysql":
         connect_args["connect_timeout"] = 5
 
     return create_engine(url, connect_args=connect_args, pool_pre_ping=True)

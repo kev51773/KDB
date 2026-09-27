@@ -7,3 +7,5 @@ pymssql>=2.2.8
 pydantic>=2.0
 sqlglot>=11.0.0
 pytest>=7.0
+# Optional: Encrypted SQLite (SQLCipher) support
+# sqlcipher3-binary>=0.5.0

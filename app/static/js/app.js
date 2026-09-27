@@ -324,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.style.display = isSqlite ? 'none' : '';
         });
         document.getElementById('dbNameLabel').textContent = isSqlite ? 'Database File Path *' : 'Database Name *';
+        document.getElementById('passwordLabel').textContent = isSqlite ? 'Encryption Key / Password (Optional)' : 'Password';
     }
 
     document.getElementById('deleteConnBtn')?.addEventListener('click', async () => {
